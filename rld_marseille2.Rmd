@@ -1,0 +1,153 @@
+---
+title: "Readlength distribution Marseille"
+author: "David Pratella"
+date: "11/12/2019"
+output:
+  html_document
+---
+## Load Data
+```{r package, results="hide", message = FALSE}
+library(reshape)
+library(ggplot2)
+library(cowplot)
+library(magick)
+library(knitr)
+library(dplyr)
+```
+
+```{r}
+
+#import data
+file_marseille = '/Users/davidpratella/projet_ff/data/data_table_marseille/rld_marseille.txt'
+rld_marseille <- read.table(file_marseille, header=TRUE,sep=';', check.names = FALSE)
+
+f_summary_marseille <- '/Users/davidpratella/projet_ff/data/data_table_marseille/summary_data_marseille12.csv'
+sum_marseille <- read.csv(f_summary_marseille, header=TRUE,sep=';')
+lite_sum_marseille <- sum_marseille[,c('sample','seqff','Twin','Trisomy')]
+
+#separate data into 2 df 
+lite_sum_marseille.21 <- lite_sum_marseille[which(lite_sum_marseille$Trisomy == 'T21' | 
+                                                    lite_sum_marseille$Trisomy == 'T18_T21'),]
+lite_sum_marseille.18 <- lite_sum_marseille[which(lite_sum_marseille$Trisomy == 'T18' | 
+                                                  lite_sum_marseille$Trisomy == 'T18_T21'),]
+lite_sum_marseille.noT <- lite_sum_marseille %>% filter(!(Trisomy %in% c('T7','T13','T18','T21','T18_T21')))
+
+#normalize data
+rld_data_normalized<-sweep(rld_marseille,2,colSums(rld_marseille),`/`)
+rld_data_normalized$readlength <- rld_marseille$readlength
+
+
+rld_data_normalized.melt <- melt(rld_data_normalized, id.vars="readlength")
+
+rld_data_normalized.melt.21 <- merge(rld_data_normalized.melt,lite_sum_marseille.21, by.x = 'variable', by.y='sample')
+
+```
+
+We take off a sample because it has a high ff (for having a more clear gradient)
+```{r}
+rld_data_normalized.melt.21 <- rld_data_normalized.melt.21[which(rld_data_normalized.melt.21$variable != 'P2018-0269'),]
+
+rld_data_normalized.melt.18 <- merge(rld_data_normalized.melt,lite_sum_marseille.18, by.x = 'variable', by.y='sample')
+rld_data_normalized.melt.noT <- merge(rld_data_normalized.melt,lite_sum_marseille.noT, by.x = 'variable', by.y='sample')
+
+
+# rld_data_normalized.T18_NP_melt <- melt(rld_data_normalized.T18_NP, id.vars="readlength")
+
+#plot T21 vs NP
+
+ggplot(rld_data_normalized.melt.21, aes(x=readlength, y = value, group = variable, color = variable))+
+  geom_line() +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(size=20),axis.text=element_text(size=20),
+        axis.text.x=element_text(),legend.title = element_text(size=20),legend.text = element_text(size=20)) +
+  xlab("readlength") +  ylab( "normalized count") 
+
+```
+In this plot above we can see one sample with an enrichment of shorter reads.
+It's the sample **P2018-0549**
+
+
+```{r}
+
+sum_marseille[which(sum_marseille$sample == 'P2018-0549'),]
+
+ggplot(rld_data_normalized.melt.18, aes(x=readlength, y = value, group = variable, color = variable))+
+  geom_line() +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(size=20),axis.text=element_text(size=20),
+        axis.text.x=element_text(),legend.title = element_text(size=20),legend.text = element_text(size=20)) +
+  xlab("readlength") +  ylab( "normalized count") 
+
+ggplot(rld_data_normalized.melt.noT, aes(x=readlength, y = value, group = variable, color = variable))+
+  geom_line() +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(size=20),axis.text=element_text(size=20),
+        axis.text.x=element_text(),legend.title = element_text(size=20),legend.text = element_text(size=20)) +
+  xlab("readlength") +  ylab( "normalized count") 
+
+
+
+
+rld_data_normalized.melt.21 <- rld_data_normalized.melt.21[which(rld_data_normalized.melt.21$variable != 'P2018-0549'),]
+
+plot1 <- ggplot(rld_data_normalized.melt.21, aes(x=readlength, y = value, group = variable, color = variable))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count")
+
+  
+plot2 <- ggplot(rld_data_normalized.melt.18, aes(x=readlength, y = value, group = variable, color = variable))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count") 
+
+p1 <- ggdraw() + draw_plot(plot1)
+p2 <- ggdraw() + draw_plot(plot2)
+
+plot_grid(p1, p2,labels = c('T21', 'T18'), ncol=1)
+
+```
+
+## Colored by Aneuploidy
+```{r}
+plot1 <- ggplot(rld_data_normalized.melt.21, aes(x=readlength, y = value, group = variable, color = Trisomy))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count")
+
+  
+plot2 <- ggplot(rld_data_normalized.melt.18, aes(x=readlength, y = value, group = variable, color = Trisomy))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count") 
+
+p1 <- ggdraw() + draw_plot(plot1)
+p2 <- ggdraw() + draw_plot(plot2)
+
+plot_grid(p1, p2,labels = c('T21', 'T18'), ncol=1)
+```
+
+## Colored by fetal fraction
+```{r}
+plot1 <- ggplot(rld_data_normalized.melt.21, aes(x=readlength, y = value, group = variable, color = seqff))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count")
+
+  
+plot2 <- ggplot(rld_data_normalized.melt.18, aes(x=readlength, y = value, group = variable, color = seqff))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count") 
+
+plot3 <- ggplot(rld_data_normalized.melt.noT, aes(x=readlength, y = value, group = variable, color = seqff))+
+  geom_line() +
+  theme_bw() +
+  xlab("readlength") +  ylab( "normalized count") 
+
+p1 <- ggdraw() + draw_plot(plot1)
+p2 <- ggdraw() + draw_plot(plot2)
+p3 <- ggdraw() + draw_plot(plot3)
+
+plot_grid(p1, p2, p3, labels = c('T21', 'T18','no T'), ncol=2)
+```
